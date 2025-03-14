@@ -12,7 +12,7 @@ from tortoise import Tortoise
 
 from app.core.security import get_password_hash
 from app.db.config import TORTOISE_ORM
-from app.models.permission import ActionType, Permission, ResourceType, Role
+from app.models.permission import ResourceType, ActionType, Permission, Role
 from app.models.user import User
 
 
@@ -31,6 +31,12 @@ async def init_db() -> None:
     if not await _is_db_empty():
         logger.info("数据库已初始化，跳过初始化过程")
         return
+
+    # 初始化资源类型
+    await init_resource_types()
+    
+    # 初始化操作类型
+    await init_action_types()
 
     # 初始化权限
     await init_permissions()
@@ -74,6 +80,71 @@ async def _is_db_empty() -> bool:
         return True
 
 
+async def init_resource_types() -> None:
+    """
+    初始化资源类型
+    """
+    try:
+        # 检查是否已有资源类型
+        resource_types_count = await ResourceType.all().count()
+
+        if resource_types_count > 0:
+            logger.info("资源类型已存在，跳过初始化")
+            return
+
+        # 基础资源类型
+        resource_types = [
+            {"code": "user", "name": "用户管理", "description": "用户及其角色、权限的管理", "is_system": True},
+            {"code": "role", "name": "角色管理", "description": "角色及其权限的管理", "is_system": True},
+            {"code": "permission", "name": "权限管理", "description": "权限的管理", "is_system": True},
+            {"code": "resource_type", "name": "资源类型管理", "description": "资源类型的管理", "is_system": True},
+            {"code": "action_type", "name": "操作类型管理", "description": "操作类型的管理", "is_system": True},
+            {"code": "system", "name": "系统管理", "description": "系统配置和管理", "is_system": True},
+            {"code": "log", "name": "日志管理", "description": "系统日志的查看和管理", "is_system": True},
+        ]
+
+        # 批量创建资源类型
+        for rt_data in resource_types:
+            await ResourceType.create(**rt_data)
+
+        logger.info(f"已创建 {len(resource_types)} 个资源类型")
+    except Exception as e:
+        logger.error(f"初始化资源类型时出错: {e}")
+
+
+async def init_action_types() -> None:
+    """
+    初始化操作类型
+    """
+    try:
+        # 检查是否已有操作类型
+        action_types_count = await ActionType.all().count()
+
+        if action_types_count > 0:
+            logger.info("操作类型已存在，跳过初始化")
+            return
+
+        # 基础操作类型
+        action_types = [
+            {"code": "create", "name": "创建", "description": "创建资源", "is_system": True},
+            {"code": "read", "name": "读取", "description": "读取资源", "is_system": True},
+            {"code": "update", "name": "更新", "description": "更新资源", "is_system": True},
+            {"code": "delete", "name": "删除", "description": "删除资源", "is_system": True},
+            {"code": "list", "name": "列表", "description": "获取资源列表", "is_system": True},
+            {"code": "export", "name": "导出", "description": "导出资源", "is_system": True},
+            {"code": "import", "name": "导入", "description": "导入资源", "is_system": True},
+            {"code": "approve", "name": "审批", "description": "审批操作", "is_system": True},
+        ]
+
+        # 批量创建操作类型
+        for at_data in action_types:
+            await ActionType.create(**at_data)
+
+        logger.info(f"已创建 {len(action_types)} 个操作类型")
+    except Exception as e:
+        logger.error(f"初始化操作类型时出错: {e}")
+
+
 async def init_permissions() -> None:
     """
     初始化权限
@@ -86,30 +157,34 @@ async def init_permissions() -> None:
             logger.info("权限已存在，跳过初始化")
             return
 
+        # 获取所有资源类型和操作类型
+        resource_types = await ResourceType.all()
+        action_types = await ActionType.all()
+
         # 创建所有资源的所有操作权限
         permissions_to_create = []
 
-        for resource in ResourceType:
-            for action in ActionType:
+        for resource_type in resource_types:
+            for action_type in action_types:
                 # 跳过一些不合理的组合
-                if resource == ResourceType.PERMISSION and action in [ActionType.APPROVE]:
+                if resource_type.code == "permission" and action_type.code == "approve":
                     continue
 
-                if resource == ResourceType.ROLE and action in [ActionType.APPROVE]:
+                if resource_type.code == "role" and action_type.code == "approve":
                     continue
 
-                if resource == ResourceType.USER and action in [ActionType.APPROVE]:
+                if resource_type.code == "user" and action_type.code == "approve":
                     continue
 
-                if resource == ResourceType.SYSTEM and action in [ActionType.APPROVE]:
+                if resource_type.code == "system" and action_type.code == "approve":
                     continue
 
                 # 创建权限
                 permission = Permission(
-                    resource=resource,
-                    action=action,
-                    name=f"{resource.value}:{action.value}",
-                    description=f"{resource.value} {action.value} 权限",
+                    resource_type_id=resource_type.id,
+                    action_type_id=action_type.id,
+                    name=f"{resource_type.code}:{action_type.code}",
+                    description=f"{resource_type.name} {action_type.name} 权限",
                 )
 
                 permissions_to_create.append(permission)
@@ -151,13 +226,35 @@ async def init_roles() -> None:
             is_default=True,
         )
 
+        # 获取用户资源类型
+        user_resource = await ResourceType.filter(code="user").first()
+        role_resource = await ResourceType.filter(code="role").first()
+        permission_resource = await ResourceType.filter(code="permission").first()
+        system_resource = await ResourceType.filter(code="system").first()
+        log_resource = await ResourceType.filter(code="log").first()
+
+        # 获取操作类型
+        read_action = await ActionType.filter(code="read").first()
+        list_action = await ActionType.filter(code="list").first()
+
         # 为管理员角色添加部分权限
         admin_permissions = []
-        admin_permissions.extend(await Permission.filter(resource=ResourceType.USER))
-        admin_permissions.extend(await Permission.filter(resource=ResourceType.ROLE, action__in=[ActionType.READ, ActionType.LIST]))
-        admin_permissions.extend(await Permission.filter(resource=ResourceType.PERMISSION, action__in=[ActionType.READ, ActionType.LIST]))
-        admin_permissions.extend(await Permission.filter(resource=ResourceType.SYSTEM, action__in=[ActionType.READ, ActionType.LIST]))
-        admin_permissions.extend(await Permission.filter(resource=ResourceType.LOG))
+        # 添加所有用户资源权限
+        admin_permissions.extend(await Permission.filter(resource_type_id=user_resource.id).all())
+        
+        # 为角色和权限资源添加读取和列表权限
+        admin_permissions.extend(await Permission.filter(resource_type_id=role_resource.id, action_type_id=read_action.id).all())
+        admin_permissions.extend(await Permission.filter(resource_type_id=role_resource.id, action_type_id=list_action.id).all())
+        
+        admin_permissions.extend(await Permission.filter(resource_type_id=permission_resource.id, action_type_id=read_action.id).all())
+        admin_permissions.extend(await Permission.filter(resource_type_id=permission_resource.id, action_type_id=list_action.id).all())
+        
+        # 添加系统资源的读取和列表权限
+        admin_permissions.extend(await Permission.filter(resource_type_id=system_resource.id, action_type_id=read_action.id).all())
+        admin_permissions.extend(await Permission.filter(resource_type_id=system_resource.id, action_type_id=list_action.id).all())
+        
+        # 添加所有日志资源权限
+        admin_permissions.extend(await Permission.filter(resource_type_id=log_resource.id).all())
 
         await admin_role.permissions.add(*admin_permissions)
 

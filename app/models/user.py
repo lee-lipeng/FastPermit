@@ -6,24 +6,11 @@
 """
 
 from tortoise import fields, models
-from enum import Enum
 from typing import TYPE_CHECKING
 from app.core.logger import logger
 
 if TYPE_CHECKING:
     from app.models.permission import Role, Permission
-
-
-class UserRoleEnum(str, Enum):
-    """
-    用户角色枚举
-    
-    定义系统中的用户角色类型，用于基本的角色区分。
-    注意：此枚举仅用于参考，实际角色通过Role模型管理。
-    """
-    SUPER_ADMIN = "super_admin"  # 超级管理员
-    ADMIN = "admin"  # 普通管理员
-    USER = "user"  # 普通用户
 
 
 class User(models.Model):
@@ -63,13 +50,13 @@ class User(models.Model):
         """检查用户是否为超级管理员"""
         await self.fetch_related("roles")
         logger.debug(f"用户 {self.id} 的角色数量: {len(self.roles)}")
-        
+
         for role in self.roles:
             logger.debug(f"检查角色: {role.name}")
             if role.name == "超级管理员":
                 logger.debug(f"用户 {self.id} 是超级管理员")
                 return True
-        
+
         logger.debug(f"用户 {self.id} 不是超级管理员")
         return False
 
