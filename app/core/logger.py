@@ -12,6 +12,7 @@ from typing import Dict, Any, Optional, List
 import re
 
 from loguru import logger
+from app.core.config import settings
 
 
 # 创建拦截器类，用于将标准日志库的日志重定向到loguru
@@ -55,7 +56,7 @@ class LoggerConfig:
     """
 
     def __init__(
-            self, log_dir: str = "logs", level: str = "DEBUG", format: Optional[str] = None,
+            self, log_dir: str = "logs", level: str = "INFO", format: Optional[str] = None,
             retention: str = "7 days", rotation: str = "10 MB", compression: str = "zip",
             sensitive_keys: Optional[List[str]] = None
     ):
@@ -209,4 +210,4 @@ class LoggerConfig:
 
 
 # 创建全局日志配置实例
-logger_config = LoggerConfig()
+logger_config = LoggerConfig(level=settings.LOG_LEVEL)

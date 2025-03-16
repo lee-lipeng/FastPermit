@@ -32,6 +32,8 @@ class Settings(BaseSettings):
 
     所有配置项都可以通过环境变量设置。
     """
+    # 日志配置
+    LOG_LEVEL: str = "INFO"  # 日志级别
 
     # API配置
     API_V1_STR: str = "/api/v1"  # API V1的路径前缀
