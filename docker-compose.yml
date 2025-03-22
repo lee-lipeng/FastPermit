@@ -1,0 +1,111 @@
+version: "3.8"
+
+services:
+  # PostgreSQL 数据库服务
+  postgres:
+    image: postgres:latest
+    container_name: fastpermit-postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=fastpermit
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  # Redis 缓存服务
+  redis:
+    image: redis:latest
+    container_name: fastpermit-redis
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+  # 数据库迁移服务 - 专门用于初始化数据库结构
+  migration:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastpermit-migration
+    volumes:
+      - ./:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=fastpermit
+      - POSTGRES_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - REDIS_PASSWORD=
+    command: >
+      bash -c "
+        # 初始化Aerich
+        aerich init -t app.db.config.TORTOISE_ORM || echo 'Aerich已初始化'
+        
+        # 创建表结构
+        aerich init-db || echo '数据库表已存在'
+        
+        # 应用所有迁移
+        aerich upgrade
+        
+        # 初始化基础数据
+        python -m app.db.init_db
+        
+        echo '数据库初始化完成'
+      "
+
+  # FastPermit 应用服务
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: fastpermit-app
+    volumes:
+      - ./:/app
+      - ./logs:/app/logs
+    ports:
+      - "8000:8000"
+    depends_on:
+      migration:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+    environment:
+      - POSTGRES_SERVER=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=fastpermit
+      - POSTGRES_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - REDIS_PASSWORD=
+    command: >
+      bash -c "
+        # 启动应用
+        uvicorn main:app --host 0.0.0.0 --port 8000
+      "
+    restart: always
+
+volumes:
+  postgres_data:
+  redis_data:
