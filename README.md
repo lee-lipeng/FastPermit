@@ -451,6 +451,6 @@ docker run -d --name fastpermit-app -p 8000:8000 \
 
 在 `docker-compose.yml` 中，已经为 FastPermit 应用配置了默认的环境变量。如需自定义，可以修改 `docker-compose.yml` 文件中的 `environment` 部分，或者创建 `.env` 文件供 Docker Compose 使用。
 
-```## 许可证
+## 许可证
 
 本项目采用 [MIT 许可证](LICENSE) 进行许可。
