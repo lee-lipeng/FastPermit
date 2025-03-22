@@ -1,6 +1,6 @@
 # FastPermit
 
-基于 FastAPI 和 PostgreSQL 的权限管理系统。
+基于 FastAPI 和 PostgreSQL 的基础权限管理系统。
 
 <div align="center">
   <img src="https://img.shields.io/badge/Python-3.12-blue.svg" alt="Python 3.12">
