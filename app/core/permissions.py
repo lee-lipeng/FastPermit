@@ -82,10 +82,10 @@ class PermissionChecker:
     async def get_user_permissions(self, user_id: int) -> Set[Tuple[str, str]]:
         """
         获取用户权限，优先从缓存获取
-
+        
         Args:
             user_id: 用户ID
-
+            
         Returns:
             Set[Tuple[str, str]]: 用户权限集合，每个权限是(resource_code, action_code)元组
         """
@@ -112,10 +112,10 @@ class PermissionChecker:
         从数据库获取用户权限
 
         此函数查询用户直接关联的权限和通过角色继承的权限。
-
+        
         Args:
             user_id: 用户ID
-
+            
         Returns:
             Set[Tuple[str, str]]: 用户权限集合，每个权限是(resource_code, action_code)元组
         """
@@ -165,10 +165,10 @@ class PermissionChecker:
     async def check_permissions(self, user: User) -> bool:
         """
         检查用户是否有权限
-
+        
         Args:
             user: 用户对象
-
+            
         Returns:
             bool: 是否有权限
         """
@@ -207,7 +207,7 @@ class PermissionChecker:
 async def clear_user_permissions_cache(user_id: int) -> None:
     """
     清除用户权限缓存
-
+    
     Args:
         user_id: 用户ID
     """
@@ -228,7 +228,7 @@ async def clear_all_permissions_cache() -> None:
 async def handle_role_permission_change(role_id: int) -> None:
     """
     处理角色权限变更，清除相关用户的权限缓存
-
+    
     Args:
         role_id: 角色ID
     """
@@ -258,7 +258,7 @@ async def handle_role_permission_change(role_id: int) -> None:
 class PermissionRequired:
     """
     权限检查依赖类
-
+    
     用于FastAPI的依赖注入系统，检查用户是否具有指定权限。
     """
 
@@ -269,7 +269,7 @@ class PermissionRequired:
     ):
         """
         初始化权限检查依赖
-
+        
         Args:
             *permissions: 权限列表
             allow_super_admin: 是否允许超级管理员绕过权限检查
@@ -280,13 +280,13 @@ class PermissionRequired:
     async def __call__(self, current_user: User = Depends(get_current_active_user)) -> User:
         """
         检查用户是否有权限
-
+        
         Args:
             current_user: 当前用户，由FastAPI依赖注入
-
+            
         Returns:
             User: 当前用户对象
-
+            
         Raises:
             PermissionDenied: 权限不足时抛出
         """
@@ -333,11 +333,11 @@ def permission_required(
         async def delete_user():
             # 需要具有删除用户权限
             pass
-
+    
     Args:
         *permissions: 权限列表，每个权限可以是元组或字典
         allow_super_admin: 是否允许超级管理员绕过权限检查，默认为True
-
+        
     Returns:
         Callable: 装饰器函数
     """
@@ -349,10 +349,10 @@ def permission_required(
     def decorator(func: Callable) -> Callable:
         """
         权限检查装饰器
-
+        
         Args:
             func: 要装饰的函数
-
+            
         Returns:
             Callable: 装饰后的函数
         """
