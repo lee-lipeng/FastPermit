@@ -27,4 +27,4 @@ class TokenPayload(BaseModel):
     定义JWT令牌中包含的数据结构。
     """
     sub: Optional[int] = None  # 主题，通常是用户ID
-    exp: int  # 过期时间戳 
+    exp: int  # 过期时间戳

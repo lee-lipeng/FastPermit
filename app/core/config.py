@@ -77,6 +77,7 @@ class Settings(BaseSettings):
     POSTGRES_DB: str  # PostgreSQL数据库名
     POSTGRES_PORT: str  # PostgreSQL端口
     DATABASE_URI: Optional[PostgresDsn] = None  # 数据库连接URI
+    TIMEZONE: str = "Asia/Shanghai"  # 时区设置
 
     @field_validator("DATABASE_URI", mode="before")
     def assemble_db_connection(cls, v: Optional[str], info: Any) -> Any:

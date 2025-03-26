@@ -4,18 +4,19 @@
 此模块提供了与安全相关的功能，包括密码哈希、JWT令牌生成和验证、
 用户认证等功能。主要用于实现API的安全访问控制。
 """
-
+import pytz
 from datetime import datetime, timedelta
 from typing import Any, Optional, Union
 
 import bcrypt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends
 from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError, jwt
+from jose import JWTError, jwt, ExpiredSignatureError
 from pydantic import ValidationError
 from app.core.config import settings
 from app.models.user import User
 from app.schemas.token import TokenPayload
+from app.core.exceptions import AuthenticationError, NotFound, APIException
 
 # OAuth2密码Bearer，用于从请求中提取JWT令牌
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{settings.API_V1_STR}/auth/login")
@@ -33,9 +34,9 @@ def create_access_token(subject: Union[str, Any], expires_delta: Optional[timede
         str: 编码后的JWT令牌
     """
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = datetime.now(pytz.timezone(settings.TIMEZONE)) + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.now(pytz.timezone(settings.TIMEZONE)) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
 
     to_encode = {"exp": expire, "sub": str(subject)}
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -96,27 +97,20 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     Raises:
         HTTPException: 如果令牌无效或用户不存在
     """
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="无法验证凭据",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-
     try:
         payload = jwt.decode(
-            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
+            token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM], options={"require_exp": True}
         )
         token_data = TokenPayload(**payload)
-
-        if datetime.fromtimestamp(token_data.exp) < datetime.now():
-            raise credentials_exception
+    except ExpiredSignatureError:
+        raise AuthenticationError("令牌已过期")
     except (JWTError, ValidationError):
-        raise credentials_exception
+        raise AuthenticationError("令牌无效")
 
     user = await User.get_or_none(id=token_data.sub)
 
     if user is None:
-        raise credentials_exception
+        raise NotFound("用户不存在")
 
     return user
 
@@ -137,5 +131,5 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
         HTTPException: 如果用户未激活
     """
     if not current_user.is_active:
-        raise HTTPException(status_code=400, detail="用户未激活")
+        raise APIException(message="用户未激活")
     return current_user
