@@ -64,9 +64,9 @@ def create_application() -> FastAPI:
         title=settings.PROJECT_NAME,
         description="基于 FastAPI 和 PostgreSQL 的基础权限管理系统",
         version="1.0.0",
-        openapi_url=f"{settings.API_V1_STR}/openapi.json",
-        docs_url=f"{settings.API_V1_STR}/docs",
-        redoc_url=f"{settings.API_V1_STR}/redoc",
+        # openapi_url=f"{settings.API_V1_STR}/openapi.json",
+        # docs_url=f"{settings.API_V1_STR}/docs",
+        # redoc_url=f"{settings.API_V1_STR}/redoc",
         lifespan=lifespan,
     )
 
@@ -77,7 +77,7 @@ def create_application() -> FastAPI:
     setup_exception_handlers(application)
 
     # 注册路由
-    application.include_router(api_router, prefix=settings.API_V1_STR)
+    application.include_router(api_router)
 
     # 注册Tortoise-ORM
     register_tortoise(

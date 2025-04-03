@@ -162,8 +162,8 @@ uvicorn main:create_application --factory --host 0.0.0.0 --port 8000
 
 启动应用后，访问以下地址查看 API 文档：
 
-- Swagger UI: http://localhost:8000/api/v1/docs
-- ReDoc: http://localhost:8000/api/v1/redoc
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
 ## 项目结构
 
