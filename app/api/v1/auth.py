@@ -16,13 +16,14 @@ from app.models.user import User
 from app.schemas.token import Token
 from app.core.logger import logger
 from app.core.permissions import permission_required, get_current_active_user
+from app.core.exceptions import APIException, AuthenticationError
 
 router = APIRouter()
 
 
 @router.post("/login", response_model=Token)
 async def login_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
+        form_data: OAuth2PasswordRequestForm = Depends(),
 ) -> Any:
     """
     OAuth2 兼容的令牌登录，获取访问令牌
@@ -38,45 +39,35 @@ async def login_access_token(
     """
     # 查找用户
     user = await User.get_or_none(username=form_data.username)
-    
+
     # 用户不存在
     if user is None:
         logger.warning(f"登录失败: 用户 {form_data.username} 不存在")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
+        raise AuthenticationError(message="用户名或密码错误")
+
     # 密码错误
     if not verify_password(form_data.password, user.hashed_password):
         logger.warning(f"登录失败: 用户 {user.username} 密码错误")
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="用户名或密码错误",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
+        raise AuthenticationError(message="用户名或密码错误")
+
     # 用户未激活
     if not user.is_active:
         logger.warning(f"登录失败: 用户 {user.username} 未激活")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="用户未激活",
-        )
-    
+        raise APIException(message="用户未激活，请联系管理员")
+
     # 更新最后登录时间
     user.last_login = datetime.now()
     await user.save()
-    
+
     # 创建访问令牌
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         subject=user.id, expires_delta=access_token_expires
     )
     logger.info(f"登录成功: 用户 {user.username} (ID: {user.id})")
-    
+
     return {
+        "code": 200,
         "access_token": access_token,
         "token_type": "bearer",
     }
@@ -84,9 +75,9 @@ async def login_access_token(
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 async def reset_password(
-    username: str,
-    old_password: str,
-    new_password: str,
+        username: str,
+        old_password: str,
+        new_password: str,
 ) -> dict:
     """
     重置密码
@@ -104,7 +95,7 @@ async def reset_password(
     """
     # 查找用户
     user = await User.get_or_none(username=username)
-    
+
     # 用户不存在
     if user is None:
         logger.warning(f"重置密码失败: 用户 {username} 不存在")
@@ -112,7 +103,7 @@ async def reset_password(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="用户不存在",
         )
-    
+
     # 原密码错误
     if not verify_password(old_password, user.hashed_password):
         logger.warning(f"重置密码失败: 用户 {user.username} 原密码错误")
@@ -120,13 +111,13 @@ async def reset_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="原密码错误",
         )
-    
+
     # 更新密码
     user.hashed_password = get_password_hash(new_password)
     await user.save()
 
     logger.info(f"重置密码成功: 用户 {user.username} (ID: {user.id})")
-    
+
     return {"message": "密码已重置"}
 
 
@@ -139,7 +130,7 @@ async def test_permission(current_user: User = None):
     此路由需要 user:read 权限才能访问，且超级管理员也不能绕过
     """
     logger.info(f"用户 {current_user.id} 成功访问了需要权限的测试路由")
-    
+
     return {
         "message": "权限验证通过",
         "user_id": current_user.id,
@@ -156,9 +147,9 @@ async def clear_permission_cache(current_user: User = None):
     此路由需要 permission:update 权限才能访问
     """
     from app.core.permissions import clear_all_permissions_cache
-    
+
     await clear_all_permissions_cache()
-    
+
     return {
         "message": "所有权限缓存已清除"
     }
@@ -170,23 +161,23 @@ async def get_my_permissions(current_user: User = Depends(get_current_active_use
     获取当前用户的角色和权限信息
     """
     from app.core.permissions import PermissionChecker
-    
+
     # 获取用户角色
     await current_user.fetch_related("roles")
     roles = [{"id": role.id, "name": role.name} for role in current_user.roles]
-    
+
     # 获取用户直接权限
     await current_user.fetch_related("permissions")
     direct_permissions = [{"id": perm.id, "name": perm.name} for perm in current_user.permissions]
-    
+
     # 获取用户所有权限（包括角色继承的）
     checker = PermissionChecker()
     all_permissions = await checker.get_user_permissions(current_user.id)
     all_permissions_list = [f"{p[0]}:{p[1]}" for p in all_permissions]
-    
+
     # 检查是否为超级管理员
     is_superadmin = await current_user.is_superadmin()
-    
+
     return {
         "user_id": current_user.id,
         "username": current_user.username,

@@ -30,7 +30,7 @@ class APIException(Exception):
 
     def __init__(
             self,
-            status_code: int = status.HTTP_400_BAD_REQUEST,
+            status_code: int = status.HTTP_200_OK,
             code: int = 400,
             message: str = "请求错误",
             details: Optional[Any] = None,

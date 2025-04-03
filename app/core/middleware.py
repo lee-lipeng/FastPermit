@@ -152,9 +152,9 @@ def setup_middlewares(app: FastAPI) -> None:
     )
 
     # 添加请求日志中间件
-    app.add_middleware(RequestLoggingMiddleware)
+    # app.add_middleware(RequestLoggingMiddleware)
 
     # 添加请求ID中间件
-    app.add_middleware(RequestIdMiddleware)
+    # app.add_middleware(RequestIdMiddleware)
 
     logger.info("中间件已设置")
