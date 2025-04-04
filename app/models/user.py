@@ -7,6 +7,9 @@
 
 from tortoise import fields, models
 from typing import TYPE_CHECKING
+
+from tortoise.contrib.pydantic import pydantic_model_creator
+
 from app.core.logger import logger
 
 if TYPE_CHECKING:
@@ -67,3 +70,9 @@ class User(models.Model):
             if role.name == "管理员" or role.name == "超级管理员":
                 return True
         return False
+
+
+# 创建Pydantic模型
+User_Pydantic = pydantic_model_creator(
+    User, name="User", exclude=["hashed_password"]
+)

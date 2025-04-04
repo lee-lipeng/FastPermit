@@ -8,6 +8,7 @@
 from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr
+from app.models.user import User_Pydantic
 
 
 class UserBase(BaseModel):
@@ -24,6 +25,16 @@ class UserBase(BaseModel):
     model_config = {
         "from_attributes": True
     }
+
+
+class UserListResponse(BaseModel):
+    """
+    用户列表响应模型
+
+    用于返回用户列表的响应数据验证。
+    """
+    items: List[User_Pydantic]
+    total: int
 
 
 class UserCreate(UserBase):

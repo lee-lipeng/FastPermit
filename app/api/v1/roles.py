@@ -1,9 +1,10 @@
 from typing import Any, List, Optional
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter
 from pydantic import BaseModel
 from tortoise.contrib.pydantic import pydantic_model_creator
 
+from app.core.exceptions import NotFound, APIException
 from app.core.permissions import (
     permission_required,
     handle_role_permission_change,
@@ -44,24 +45,25 @@ class RoleUpdate_Pydantic(BaseModel):
     }
 
 
-@router.get("/", response_model=List[Role_Pydantic])
+@router.get("", response_model=List[Role_Pydantic], summary="获取角色列表")
 @permission_required(("role", "list"))
-async def list_roles(
-) -> Any:
+async def list_roles() -> Any:
     """
     获取角色列表
+
+    需要role:list权限
     """
     roles = await Role.all()
     return roles
 
 
-@router.post("/", response_model=Role_Pydantic)
+@router.post("", response_model=Role_Pydantic, summary="创建角色")
 @permission_required(("role", "create"))
-async def create_role(
-        role_in: RoleIn_Pydantic,
-) -> Any:
+async def create_role(role_in: RoleIn_Pydantic) -> Any:
     """
     创建角色
+
+    需要role:create权限
     """
     # 创建角色
     role = await Role.create(
@@ -81,26 +83,23 @@ async def create_role(
     return role
 
 
-@router.get("/{role_id}", response_model=Role_Pydantic)
+@router.get("/{role_id}", response_model=Role_Pydantic, summary="获取角色详情")
 @permission_required(("role", "read"))
-async def read_role(
-        role_id: int,
-) -> Any:
+async def read_role(role_id: int) -> Any:
     """
     获取角色详情
+
+    需要role:read权限
     """
     role = await Role.get_or_none(id=role_id)
 
     if role is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="角色不存在",
-        )
+        raise NotFound(message="角色不存在")
 
     return role
 
 
-@router.put("/{role_id}", response_model=Role_Pydantic)
+@router.put("/{role_id}", response_model=Role_Pydantic, summary="更新角色")
 @permission_required(("role", "update"))
 async def update_role(
         role_id: int,
@@ -108,14 +107,13 @@ async def update_role(
 ) -> Any:
     """
     更新角色
+
+    需要role:update权限
     """
     role = await Role.get_or_none(id=role_id)
 
     if role is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="角色不存在",
-        )
+        raise NotFound(message="角色不存在")
 
     update_data = role_in.model_dump(exclude_unset=True)
 
@@ -129,28 +127,22 @@ async def update_role(
     return await Role.get(id=role_id)
 
 
-@router.delete("/{role_id}")
+@router.delete("/{role_id}", summary="删除角色")
 @permission_required(("role", "delete"))
-async def delete_role(
-        role_id: int,
-) -> dict:
+async def delete_role(role_id: int) -> dict:
     """
     删除角色
+
+    需要role:delete权限
     """
     role = await Role.get_or_none(id=role_id)
 
     if role is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="角色不存在",
-        )
+        raise NotFound(message="角色不存在")
 
     # 默认角色不能删除
     if role.is_default:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="默认角色不能删除",
-        )
+        raise APIException(message="默认角色不能删除")
 
     # 清除相关用户的权限缓存
     await handle_role_permission_change(role_id)
@@ -161,27 +153,24 @@ async def delete_role(
     return {"message": "角色已删除"}
 
 
-@router.get("/{role_id}/permissions", response_model=List[int])
+@router.get("/{role_id}/permissions", response_model=List[int], summary="获取角色权限")
 @permission_required(("role", "read"))
-async def get_role_permissions(
-        role_id: int,
-) -> Any:
+async def get_role_permissions(role_id: int) -> Any:
     """
     获取角色权限
+
+    需要role:read权限
     """
     role = await Role.get_or_none(id=role_id)
 
     if role is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="角色不存在",
-        )
+        raise NotFound(message="角色不存在")
 
     permissions = await role.permissions.all()
     return [permission.id for permission in permissions]
 
 
-@router.post("/{role_id}/permissions")
+@router.post("/{role_id}/permissions", summary="更新角色权限")
 @permission_required(("role", "update"))
 async def update_role_permissions(
         role_id: int,
@@ -189,14 +178,13 @@ async def update_role_permissions(
 ) -> dict:
     """
     更新角色权限
+
+    需要role:update权限
     """
     role = await Role.get_or_none(id=role_id)
 
     if role is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="角色不存在",
-        )
+        raise NotFound(message="角色不存在")
 
     # 清空现有权限
     await role.permissions.clear()
