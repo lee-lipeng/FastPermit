@@ -67,7 +67,6 @@ async def login_access_token(
     logger.info(f"登录成功: 用户 {user.username} (ID: {user.id})")
 
     return {
-        "code": 200,
         "access_token": access_token,
         "token_type": "bearer",
     }
@@ -75,17 +74,17 @@ async def login_access_token(
 
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 async def reset_password(
-        username: str,
         old_password: str,
         new_password: str,
+        current_user: User = Depends(get_current_active_user),
 ) -> dict:
     """
-    重置密码
+    自己重置密码
     
     Args:
-        username: 用户名
         old_password: 旧密码
         new_password: 新密码
+        current_user: 当前用户
         
     Returns:
         dict: 包含操作结果消息的字典
@@ -93,30 +92,17 @@ async def reset_password(
     Raises:
         HTTPException: 用户不存在或原密码错误时抛出
     """
-    # 查找用户
-    user = await User.get_or_none(username=username)
-
-    # 用户不存在
-    if user is None:
-        logger.warning(f"重置密码失败: 用户 {username} 不存在")
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="用户不存在",
-        )
 
     # 原密码错误
-    if not verify_password(old_password, user.hashed_password):
-        logger.warning(f"重置密码失败: 用户 {user.username} 原密码错误")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="原密码错误",
-        )
+    if not verify_password(old_password, current_user.hashed_password):
+        logger.warning(f"重置密码失败: 用户 {current_user.username} 原密码错误")
+        raise APIException(message="原密码错误")
 
     # 更新密码
-    user.hashed_password = get_password_hash(new_password)
-    await user.save()
+    current_user.hashed_password = get_password_hash(new_password)
+    await current_user.save()
 
-    logger.info(f"重置密码成功: 用户 {user.username} (ID: {user.id})")
+    logger.info(f"重置密码成功: 用户 {current_user.username} (ID: {current_user.id})")
 
     return {"message": "密码已重置"}
 
@@ -132,7 +118,6 @@ async def test_permission(current_user: User = None):
     logger.info(f"用户 {current_user.id} 成功访问了需要权限的测试路由")
 
     return {
-        "message": "权限验证通过",
         "user_id": current_user.id,
         "username": current_user.username
     }
@@ -150,9 +135,7 @@ async def clear_permission_cache(current_user: User = None):
 
     await clear_all_permissions_cache()
 
-    return {
-        "message": "所有权限缓存已清除"
-    }
+    return {"message": "所有权限缓存已清除"}
 
 
 @router.get("/my-permissions")

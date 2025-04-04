@@ -16,7 +16,6 @@ class Token(BaseModel):
     
     用于API响应中返回JWT令牌信息。
     """
-    code: int  # 状态码
     access_token: str  # 访问令牌
     token_type: str  # 令牌类型，通常为"bearer"
 
